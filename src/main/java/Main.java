@@ -79,14 +79,13 @@ public class Main {
         }
 
         List<String> row = Arrays.asList(line.split("\";\""));
-        int rowSize = row.size();
-        if (rowSize != ELEMENTS_COUNT_IN_ROW) {
+        if (row.size() != ELEMENTS_COUNT_IN_ROW) {
           line = reader.readLine();
           continue;
         }
-        --rowSize;
+        int lastIndex = row.size() - 1;
         row.set(0, row.get(0).substring(1));
-        row.set(rowSize, row.get(rowSize).substring(0, row.get(rowSize).length() - 1));
+        row.set(lastIndex, row.get(lastIndex).substring(0, row.get(lastIndex).length() - 1));
 
         rowsList.add(row);
 
