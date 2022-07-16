@@ -143,6 +143,8 @@ public class Main {
       groups.get(mergeColumn).addAll(groups.get(column));
     }
 
+    groups.get(mergeColumn).sort(Comparator.comparingInt(Group::size).reversed());
+
     System.out.println("Group count: " + groups.get(mergeColumn).size());
 
     try (BufferedWriter writer = new BufferedWriter(new FileWriter(OUTPUT_FILE_PATH, false))) {
