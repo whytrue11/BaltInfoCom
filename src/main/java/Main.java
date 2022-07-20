@@ -7,69 +7,41 @@ import java.util.regex.Pattern;
 
 public class Main {
 
-  private static class Group {
-    private final List<List<String>> group;
+  public static final String SEPARATOR = File.separator;
 
-    private void addUniqueInGroup(List<List<String>> uncheckedGroup) {
-      for (List<String> uncheckedGroupRow : uncheckedGroup) {
-        boolean equal = false;
-        for (List<String> checkedGroupRow : group) {
-          if (uncheckedGroupRow.equals(checkedGroupRow)) {
-            equal = true;
-            break;
-          }
-        }
-        if (!equal) {
-          group.add(uncheckedGroupRow);
-        }
-      }
-    }
-
-    public Group(List<List<String>> rowsList, int startIndex, int endIndex) {
-      this.group = new ArrayList<>(endIndex - startIndex);
-      List<List<String>> uncheckedGroup = rowsList.subList(startIndex, endIndex + 1);
-      addUniqueInGroup(uncheckedGroup);
-    }
-
-    public int size() {
-      return this.group.size();
-    }
-
-    public boolean merge(Group b, int column) {
-      for (int i = 0; i < this.size(); i++) {
-        for (int j = 0; j < b.size(); j++) {
-          if (this.group.get(i).get(column).equals(b.group.get(j).get(column))) {
-            addUniqueInGroup(b.group);
-            return true;
-          }
-        }
-      }
-      return false;
-    }
-
-    @Override
-    public String toString() {
-      StringBuilder stringBuilder = new StringBuilder();
-      group.forEach(row -> {
-        row.forEach(string -> stringBuilder.append("\"").append(string).append("\";"));
-        stringBuilder.delete(stringBuilder.length() - 1, stringBuilder.length());
-        stringBuilder.append("\n");
-      });
-      return stringBuilder.toString();
-    }
-  }
+  private static final int ELEMENTS_COUNT_IN_ROW = 3;
+  private static final String INPUT_FILE_PATH = "src" + SEPARATOR + "main" + SEPARATOR + "resources" + SEPARATOR + "lng.csv";
+  private static final String OUTPUT_FILE_PATH = "src" + SEPARATOR + "main" + SEPARATOR + "resources" + SEPARATOR + "out.csv";
 
   public static void main(String[] args) {
-    final int ELEMENTS_COUNT_IN_ROW = 3;
-    final String SEPARATOR = File.separator;
-    final String INPUT_FILE_PATH = "src" + SEPARATOR + "main" + SEPARATOR + "resources" + SEPARATOR + "lng.csv";
-    final String OUTPUT_FILE_PATH = "src" + SEPARATOR + "main" + SEPARATOR + "resources" + SEPARATOR + "out.csv";
 
     long startTime = System.currentTimeMillis();
+    List<Group> groups = null;
+    try {
+      groups = mainAlgorithm(INPUT_FILE_PATH);
+    } catch (IOException e) {
+      System.out.println(e.getMessage());
+      return;
+    }
+
+    System.out.println("Group count: " + groups.size());
+
+    try (BufferedWriter writer = new BufferedWriter(new FileWriter(OUTPUT_FILE_PATH, false))) {
+      for (int i = 0; i < groups.size(); i++) {
+        writer.write("Group " + (i + 1) + "\n" + groups.get(i) + "\n");
+      }
+    } catch (IOException e) {
+      System.out.println(e.getMessage());
+    }
+
+    System.out.println("Run time: " + (System.currentTimeMillis() - startTime) / 1000);
+  }
+
+  public static List<Group> mainAlgorithm(String inputFilePath) throws IOException {
 
     List<List<String>> rowsList = new ArrayList<>();
 
-    try (BufferedReader reader = new BufferedReader(new FileReader(INPUT_FILE_PATH))) {
+    try (BufferedReader reader = new BufferedReader(new FileReader(inputFilePath))) {
       String line = reader.readLine();
 
       while (line != null) {
@@ -98,8 +70,7 @@ public class Main {
     }
 
     if (rowsList.isEmpty()) {
-      System.out.println("Incorrect input");
-      return;
+      throw new IOException("Incorrect input");
     }
 
     List<List<Group>> groups = new ArrayList<>(ELEMENTS_COUNT_IN_ROW);
@@ -117,6 +88,12 @@ public class Main {
         if (!startGroupString.isEmpty() && !otherString.isEmpty()
             && startGroupString.equals(otherString)) {
           endIndex = i;
+          if (i == rowsList.size() - 1) {
+            Group group = new Group(rowsList, startIndex, endIndex);
+            if (group.size() != 1) {
+              groups.get(column).add(group);
+            }
+          }
         } else {
           if (endIndex - startIndex != 0) {
             Group group = new Group(rowsList, startIndex, endIndex);
@@ -143,18 +120,18 @@ public class Main {
       groups.get(mergeColumn).addAll(groups.get(column));
     }
 
-    groups.get(mergeColumn).sort(Comparator.comparingInt(Group::size).reversed());
-
-    System.out.println("Group count: " + groups.get(mergeColumn).size());
-
-    try (BufferedWriter writer = new BufferedWriter(new FileWriter(OUTPUT_FILE_PATH, false))) {
-      for (int i = 0; i < groups.get(mergeColumn).size(); i++) {
-        writer.write("Group " + (i + 1) + "\n" + groups.get(mergeColumn).get(i) + "\n");
+    for (int column = 0; column < ELEMENTS_COUNT_IN_ROW; column++) {
+      for (int mergeGroupIndex = 0; mergeGroupIndex < groups.get(mergeColumn).size(); mergeGroupIndex++) {
+        for (int otherGroupIndex = mergeGroupIndex + 1; otherGroupIndex < groups.get(mergeColumn).size(); otherGroupIndex++) {
+          if (groups.get(mergeColumn).get(mergeGroupIndex).merge(groups.get(mergeColumn).get(otherGroupIndex), column)) {
+            groups.get(mergeColumn).remove(otherGroupIndex);
+          }
+        }
       }
-    } catch (IOException e) {
-      System.out.println(e.getMessage());
     }
 
-    System.out.println("Run time: " + (System.currentTimeMillis() - startTime) / 1000);
+    groups.get(mergeColumn).sort(Comparator.comparingInt(Group::size).reversed());
+
+    return groups.get(mergeColumn);
   }
 }
